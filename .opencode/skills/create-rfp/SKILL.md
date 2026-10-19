@@ -1,6 +1,6 @@
 ---
 name: create-rfp
-description: Use when the user asks to create an RFP, requirements doc, requirement specification, PRD, or test cases for a feature — e.g. "create rfp for property listing", "write requirements and test cases for X", "new requirement doc". Runs a guided interview, then writes rfp/<feature-slug>/requirements.md and rfp/<feature-slug>/test-cases.md in the project root.
+description: Use when the user asks to create an RFP, requirements doc, requirement specification, PRD, or test cases for a feature — e.g. "create rfp for property listing", "write requirements and test cases for X", "new requirement doc". Runs a guided interview, then creates a branch rfp/<feature-slug> and writes rfp/<feature-slug>/requirements.md and rfp/<feature-slug>/test-cases.md in the project root.
 ---
 
 # Create RFP
@@ -58,7 +58,17 @@ Strip filler words (*page*, *feature*, *system*, *module*, *v2*). If the slug is
 
 If `rfp/<slug>/` already exists, do not overwrite. Tell the user and offer `<slug>-2`.
 
-## Step 3 — Write requirements.md
+## Step 3 — Create the branch
+
+Every requirement gets its own branch, named `rfp/<slug>`, so specs and their implementation stay reviewable in isolation.
+
+1. Confirm the project is a git repository (`git rev-parse --is-inside-work-tree`). If it is not, skip this step and say so in the report — do not run `git init` without being asked.
+2. `git switch -c rfp/<slug>` from the current branch. Never switch away from a branch that has uncommitted changes.
+3. If the branch already exists, switch to it and tell the user it was reused. Never reset or force-update it.
+
+Do not commit or push. Creating the branch is the last git action this skill takes — commits and pushes belong to the user unless they ask.
+
+## Step 4 — Write requirements.md
 
 1. Get today's date: `date +%Y-%m-%d` (never hardcode it).
 2. Create `rfp/<slug>/`.
@@ -79,7 +89,7 @@ Number sequentially within each prefix, never reuse a number, never renumber aft
 
 Write each functional requirement as **one verifiable behaviour**, not a bundle. "User can search listings" is not a requirement; "User can filter listings by city, price range, and bedrooms, and results update without a page reload" is.
 
-## Step 4 — Write test-cases.md
+## Step 5 — Write test-cases.md
 
 1. Read `templates/test-cases-template.md`.
 2. Write the filled copy to `rfp/<slug>/test-cases.md`.
@@ -94,12 +104,13 @@ Rules:
 - Gherkin blocks: one `Feature:` per user story, `Scenario:` per behaviour, use `Given/When/Then/And`. Keep scenarios independent.
 - Do not assert on exact timings, magic numbers, or copy that the requirements never fixed.
 
-## Step 5 — Report back
+## Step 6 — Report back
 
 Print, concisely:
 
 - The two paths created.
 - The slug and why it was chosen.
+- The branch created.
 - The FR / BR / NFR / TC counts.
 - **Open questions** needing the user's answer (this is the important part — it is what they must act on next).
 
@@ -109,6 +120,7 @@ Then tell the user to restart opencode if the skill was newly created (skills lo
 
 If `rfp/<slug>/requirements.md` already exists and the user asks for changes, edit in place:
 
+- Switch to `rfp/<slug>` first if it exists — an edit belongs on that requirement's branch, never on a new one. If no such branch exists, create it from the current branch rather than starting a fresh `rfp/<slug>-2`.
 - New requirements get the next free ID. Never renumber.
 - After any `requirements.md` change, update `test-cases.md`: new/changed requirements need new or revised TCs, and the traceability matrix must be rebuilt.
 - Append a short entry to the *Change log* table in `requirements.md`.
