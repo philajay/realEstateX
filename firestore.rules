@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// EstateX Firestore security rules.
+//
+// NOT DEPLOYED. Read this before you publish.
+//
+// The live project currently runs wide-open rules that predate any rules file
+// in this repo. The `listings` and `users` blocks below reproduce that current
+// behaviour so that publishing this file does not silently break the seller
+// listing feature — they are not endorsements. Tighten them in the
+// `seller-property-listing` work (Q-006 there), not here.
+//
+// The `contactEnquiries` block is the one this file exists for: an anonymous,
+// write-only, shape-checked path for the public contact form.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // FR-010 / BR-004: anyone may create an enquiry, nobody may read, change,
+    // or delete one from a client. The admin surface is out of scope
+    // (Q-011) and will need its own admin-authenticated read rule when built.
+    //
+    // submittedAt is written by serverTimestamp() in the client SDK, but rules
+    // cannot tell a resolved server timestamp from one a malicious client
+    // invented. Treat the field as a claim, not as proof.
+    match /contactEnquiries/{enquiryId} {
+      allow create: if validEnquiry(request.resource.data);
+      allow read, update, delete: if false;
+    }
+
+    // Widened to the field list the contact form actually writes, so a stray
+    // or injected field is rejected instead of silently stored.
+    function validEnquiry(data) {
+      return data.keys().hasOnly(['name', 'email', 'message', 'status', 'submittedAt'])
+        && data.keys().hasAll(['name', 'email', 'message', 'status', 'submittedAt'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 100
+        && data.email is string
+        && data.email.size() <= 254
+        && data.email.matches('^[^\\s@]+@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$')
+        && data.message is string
+        && data.message.size() > 0
+        && data.message.size() <= 2000
+        && data.status == 'new'
+        && data.submittedAt is timestamp;
+    }
+
+    // Current live behaviour, kept so publishing this file is not a breaking
+    // change. TODO: enforce ownerId == auth.uid (see requirements Q-006).
+    match /listings/{listingId} {
+      allow read, write: if true;
+    }
+
+    // Current live behaviour, kept for the same reason. TODO: a user may read
+    // and write only their own document.
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+  }
+}
